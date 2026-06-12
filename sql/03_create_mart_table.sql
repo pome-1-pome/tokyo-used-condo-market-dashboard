@@ -1,11 +1,22 @@
 ﻿-- 03_create_mart_table.sql
 -- BigQuery mart layer
+-- ASCII-only SQL to avoid Windows CLI encoding issues.
 -- Replace YOUR_PROJECT_ID with your actual GCP project ID.
 
 CREATE SCHEMA IF NOT EXISTS `YOUR_PROJECT_ID.mart`;
 
 CREATE OR REPLACE TABLE `YOUR_PROJECT_ID.mart.mart_tokyo_used_condo_segments` AS
-WITH quarterly_segment AS (
+WITH analysis_base AS (
+  SELECT
+    *
+  FROM `YOUR_PROJECT_ID.staging.stg_tokyo_used_condo_transactions`
+  WHERE
+    transaction_quarter_start_date IS NOT NULL
+    AND unit_price_per_sqm IS NOT NULL
+    AND unit_price_per_sqm BETWEEN 100000 AND 5000000
+),
+
+quarterly_segment AS (
   SELECT
     municipality,
     transaction_year,
@@ -20,10 +31,7 @@ WITH quarterly_segment AS (
     AVG(transaction_price_total) AS avg_transaction_price_total,
     AVG(area_sqm) AS avg_area_sqm
 
-  FROM `YOUR_PROJECT_ID.staging.stg_tokyo_used_condo_transactions`
-  WHERE
-    transaction_quarter_start_date IS NOT NULL
-    AND unit_price_per_sqm IS NOT NULL
+  FROM analysis_base
   GROUP BY
     municipality,
     transaction_year,
@@ -56,8 +64,8 @@ SELECT
         avg_unit_price_per_sqm - avg_unit_price_per_sqm_prev_year,
         avg_unit_price_per_sqm_prev_year
       ) > 0
-      THEN '重点調査候補'
-    ELSE '通常確認'
+      THEN 'priority_research_candidate'
+    ELSE 'normal_review'
   END AS recommendation_flag
 
 FROM with_yoy;
