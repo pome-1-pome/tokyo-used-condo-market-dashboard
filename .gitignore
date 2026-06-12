@@ -1,0 +1,4 @@
+﻿data/raw/
+data/processed/
+*.zip
+*.csv
